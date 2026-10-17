@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake freeglut3-dev libglu1-mesa-dev xvfb x11-apps imagemagick
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Smoke test (render under a virtual display)
+        run: |
+          Xvfb :99 -screen 0 800x600x24 &
+          sleep 2
+          export DISPLAY=:99
+          ./build/steam_engine &
+          APP=$!
+          sleep 4
+          xwd -root -silent | convert xwd:- -crop 400x400+0+0 +repage screenshot.png
+          kill $APP
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshot
+          path: screenshot.png
